@@ -1,0 +1,4 @@
+click==8.1.7
+requests==2.32.3
+pytest==8.3.3
+requests-mock==1.12.1
