@@ -8,6 +8,7 @@ class APIClient:
         self.token_path = get_token_path()
         self.token = self._load_token()
 
+    ################ AUTHENTICATION ####################
     def _load_token(self):
         if os.path.exists(self.token_path):
             with open(self.token_path, "r") as f:
@@ -23,9 +24,10 @@ class APIClient:
             raise RuntimeError("Not authenticated. Please run 'sensor login' first.")
         return {"Authorization": f"Bearer {self.token}"}
 
-    def login(self, email, password):
+    ################ USERS ####################
+    def login(self, username, password):
         res = requests.post(f"{self.base_url}/auth/login", json={
-            "email": email,
+            "username": username,
             "password": password
         })
         res.raise_for_status()
@@ -35,18 +37,54 @@ class APIClient:
         self._save_token(token)
         self.token = token
         return {"status": "success", "token_saved": True}
+    
+    def register(self, email, username, password):
+        res = requests.post(f"{self.base_url}/auth/register", json={
+            "email": email,
+            "username": username,
+            "password": password
+        })
+        res.raise_for_status()
+        return res.json()
 
-    def register_sensor(self, type, latitude, longitude, description):
+    ################ SENSORS ####################
+    def register_sensor(self, type, latitude, longitude, description, is_active):
         headers = self._auth_headers()
         res = requests.post(f"{self.base_url}/sensors", json={
             "type": type,
             "latitude": latitude,
             "longitude": longitude,
             "description": description,
+            "is_active": is_active,
         }, headers=headers)
         res.raise_for_status()
         return res.json()
     
+    def update_sensor(self, sensor_id, type, latitude, longitude, is_active, description):
+        headers = self._auth_headers()
+        res = requests.put(f"{self.base_url}/sensors/{sensor_id}", json={
+            "type": type,
+            "latitude": latitude,
+            "longitude": longitude,
+            "description": description,
+            "is_active": is_active,
+        }, headers=headers)
+        res.raise_for_status()
+        return res.json()
+    
+    def get_sensor(self, sensor_id):
+        headers = self._auth_headers()
+        res = requests.get(f"{self.base_url}/sensors/{sensor_id}", headers=headers)
+        res.raise_for_status()
+        return res.json()
+    
+    def get_sensors(self):
+        headers = self._auth_headers()
+        res = requests.get(f"{self.base_url}/sensors", headers=headers)
+        res.raise_for_status()
+        return res.json()
+    
+    ################ DATA ####################
     def get_sensor_data(self, sensor_id):
         headers = self._auth_headers()
         res = requests.get(f"{self.base_url}/sensors/{sensor_id}/data", headers=headers)
