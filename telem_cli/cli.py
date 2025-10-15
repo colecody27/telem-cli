@@ -1,8 +1,13 @@
+# cli.py
+
 import click
 from telem_cli.api_client import APIClient
 from telem_cli.config import get_api_url
 import json
 from telem_cli.utils import *
+from requests import post
+from telem_cli.sensor_reader import *
+from telem_cli.options import *
 
 @click.group()
 @click.option("--api-url", default=get_api_url(), help="Base URL of the backend API.")
@@ -100,6 +105,32 @@ def get_sensor_data(client, sensor_id):
     """Gets all data for a given sensor"""
     result = client.get_sensor_data(sensor_id)
     pretty_print_json(result)
+
+@cli.command()
+@click.option("--sensor-id", required=True, type=int)
+@click.option("--port", default='/dev/cu.usbmodem1101', help="Serial port of Arduino, e.g., /dev/ttyACM0")
+@click.option("--baud", default=9600)
+@click.option("--batch-size", default=10)
+@click.option("--unit", required=True, type=click.Choice(list(UNIT_CHOICES.keys())))
+@click.pass_obj
+def stream_serial(client, sensor_id, port, baud, batch_size, unit):
+    req = {'readings': []}
+    click.echo(f"Attempting to read live data from {port} (baud {baud})")
+
+    for reading in read_from_arduino(port, unit, baud):
+        req["readings"].append(reading)
+        click.echo(f"Reading gathered: {reading}")
+
+        if len(req["readings"]) >= batch_size:
+            print(f'Batch size reached')
+            retries = 1
+            resp = client.push_sensor_data(sensor_id, req)
+            while 'error' in resp and retries < 3:
+                click.echo('Error pushing data, retrying...')
+                resp = client.push_sensor_data(sensor_id, unit, req)
+            
+            pretty_print_json(resp)
+            req["readings"] = []
 
 if __name__ == "__main__":
     cli()

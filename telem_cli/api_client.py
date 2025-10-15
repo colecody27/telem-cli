@@ -91,11 +91,8 @@ class APIClient:
         res.raise_for_status()
         return res.json()
 
-    def push_sensor_data(self, sensor_id, unit, value):
+    def push_sensor_data(self, sensor_id, data):
         headers = self._auth_headers()
-        res = requests.post(f"{self.base_url}/sensors/{sensor_id}/data", json={
-            "unit": unit,
-            "value": value
-        }, headers=headers)
+        res = requests.post(f"{self.base_url}/sensors/{sensor_id}/data", json=data, headers=headers)
         res.raise_for_status()
         return res.json()
