@@ -179,10 +179,18 @@ def log_stream_data(client, sensor_id, port, baud, batch_size, unit):
 # GET DATA
 @cli.command()
 @click.argument("sensor_id", type=int)
+@click.option("--days", type=int)
+@click.option("--hours", type=int)
+@click.option("--mins", type=int)
 @click.pass_obj
-def get_sensor_data(client, sensor_id):
+def get_sensor_data(client, sensor_id, days, hours, mins):
     """Gets all data for a given sensor"""
-    result = client.get_sensor_data(sensor_id)
+    filters = {'filters': {
+        'days': days,
+        'hours': hours,
+        'mins': mins}}
+
+    result = client.get_sensor_data(sensor_id, filters)
     pretty_print_json(result)
 
 # DELETE DATA

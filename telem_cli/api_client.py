@@ -91,9 +91,9 @@ class APIClient:
         return res.json()
     
     ################ DATA ####################
-    def get_sensor_data(self, sensor_id):
+    def get_sensor_data(self, sensor_id, filters):
         headers = self._auth_headers()
-        res = requests.get(f"{self.base_url}/sensors/{sensor_id}/data", headers=headers)
+        res = requests.get(f"{self.base_url}/sensors/{sensor_id}/data", json=filters, headers=headers)
         res.raise_for_status()
         return res.json()
     
