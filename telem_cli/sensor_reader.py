@@ -1,4 +1,3 @@
-# sensor_reader.py
 import click
 import serial
 from datetime import datetime

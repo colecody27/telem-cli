@@ -1,5 +1,3 @@
-# cli.py
-
 import click
 from telem_cli.api_client import APIClient
 from telem_cli.config import get_api_url
@@ -8,6 +6,8 @@ from telem_cli.utils import *
 from requests import post
 from telem_cli.sensor_reader import *
 from telem_cli.options import *
+import os 
+import pandas as pd
 
 @click.group()
 @click.option("--api-url", default=get_api_url(), help="Base URL of the backend API.")
@@ -85,27 +85,71 @@ def get_sensor(client, sensor_id):
     result = client.get_sensor(sensor_id)
     pretty_print_json(result)
 
+# DELETE SENSOR
+@cli.command()
+@click.argument("sensor_id", type=int)
+@click.pass_obj
+def remove_sensor(client, sensor_id):
+    """Delete sensor and associated data"""
+    result = client.delete_sensor(sensor_id)
+    pretty_print_json(result)
+
 ################ DATA ####################
-# LOG DATA
+# LOG SINGLE DATA POINT
 @cli.command()
 @click.argument("sensor_id", type=int)
 @click.argument("unit", type=str)
 @click.argument("value", type=float)
+@click.option("--file", type=str, help="Name of json or csv file")
 @click.pass_obj
-def push_sensor_data(client, sensor_id, unit, value):
+def log_sensor_data(client, sensor_id, unit, value):
     """Send a new reading for a sensor."""
-    result = client.push_sensor_data(sensor_id, unit, value)
+    req = {'readings': [{'sensor_id': sensor_id, 'unit': unit, 'value': value}]}
+    result = client.push_sensor_data(req)
     pretty_print_json(result)
 
-# GET DATA
+# LOG DATA POINTS FROM FILE 
 @cli.command()
-@click.argument("sensor_id", type=int)
+@click.argument("filename", type=click.Path(exists=True))
+@click.option("--batch-size", default=50, show_default=True, help="Number of data points to send per request")
 @click.pass_obj
-def get_sensor_data(client, sensor_id):
-    """Gets all data for a given sensor"""
-    result = client.get_sensor_data(sensor_id)
-    pretty_print_json(result)
+def log_file_data(client, filename, batch_size):
+    try:
+        # Determine file type
+        ext = os.path.splitext(filename)[1].lower()
 
+        if ext == ".csv":
+            df = pd.read_csv(filename)
+        elif ext == ".json":
+            df = pd.read_json(filename)
+        else:
+            click.echo("Unsupported file type. Please use .csv or .json.")
+            return
+
+        # Validate required columns
+        required_cols = {"sensor_id", "unit", "value"}
+        if not required_cols.issubset(df.columns):
+            click.echo(f"Missing required columns. Found: {list(df.columns)}")
+            return
+        else:
+            df = df[list(required_cols)]
+
+        # Process in batches
+        total = len(df)
+        click.echo(f"Loaded {total} data points from {filename}")
+        for start in range(0, total, batch_size):
+            batch = df.iloc[start:start + batch_size].to_dict(orient="records")
+            req = {'readings': batch}
+            result = client.push_sensor_data(req)
+            click.echo(f"Sent batch {start // batch_size + 1} → {len(batch)} records")
+            pretty_print_json(result)
+        
+        click.echo("All data sent successfully!")
+
+    except Exception as e:
+        click.echo(f"Error reading or sending data: {e}")
+
+# LOG STREAM OF DATA
 @cli.command()
 @click.option("--sensor-id", required=True, type=int)
 @click.option("--port", default='/dev/cu.usbmodem1101', help="Serial port of Arduino, e.g., /dev/ttyACM0")
@@ -113,7 +157,7 @@ def get_sensor_data(client, sensor_id):
 @click.option("--batch-size", default=10)
 @click.option("--unit", required=True, type=click.Choice(list(UNIT_CHOICES.keys())))
 @click.pass_obj
-def stream_serial(client, sensor_id, port, baud, batch_size, unit):
+def log_stream_data(client, sensor_id, port, baud, batch_size, unit):
     req = {'readings': []}
     click.echo(f"Attempting to read live data from {port} (baud {baud})")
 
@@ -131,6 +175,25 @@ def stream_serial(client, sensor_id, port, baud, batch_size, unit):
             
             pretty_print_json(resp)
             req["readings"] = []
+
+# GET DATA
+@cli.command()
+@click.argument("sensor_id", type=int)
+@click.pass_obj
+def get_sensor_data(client, sensor_id):
+    """Gets all data for a given sensor"""
+    result = client.get_sensor_data(sensor_id)
+    pretty_print_json(result)
+
+# DELETE DATA
+@cli.command()
+@click.argument("sensor_id", type=int)
+@click.option("--data_id", type=int)
+@click.pass_obj
+def remove_sensor_data(client, sensor_id, data_id):
+    """Delete data point for a given sensor"""
+    result = client.delete_sensor_data(sensor_id, data_id)
+    pretty_print_json(result)
 
 if __name__ == "__main__":
     cli()

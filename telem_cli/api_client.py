@@ -78,6 +78,12 @@ class APIClient:
         res.raise_for_status()
         return res.json()
     
+    def delete_sensor(self, sensor_id):
+        headers = self._auth_headers()
+        res = requests.delete(f"{self.base_url}/sensors/{sensor_id}", headers=headers)
+        res.raise_for_status()
+        return res.json()
+    
     def get_sensors(self):
         headers = self._auth_headers()
         res = requests.get(f"{self.base_url}/sensors", headers=headers)
@@ -90,9 +96,18 @@ class APIClient:
         res = requests.get(f"{self.base_url}/sensors/{sensor_id}/data", headers=headers)
         res.raise_for_status()
         return res.json()
-
-    def push_sensor_data(self, sensor_id, data):
+    
+    def push_sensor_data(self, data):
         headers = self._auth_headers()
-        res = requests.post(f"{self.base_url}/sensors/{sensor_id}/data", json=data, headers=headers)
+        res = requests.post(f"{self.base_url}/sensors/data", json=data, headers=headers)
+        res.raise_for_status()
+        return res.json()
+    
+    def delete_sensor_data(self, sensor_id, data_id):
+        headers = self._auth_headers()
+        if data_id:
+            res = requests.delete(f"{self.base_url}/sensors/{sensor_id}/data/{data_id}", headers=headers)
+        else:
+            res = requests.delete(f"{self.base_url}/sensors/{sensor_id}/data", headers=headers)
         res.raise_for_status()
         return res.json()
